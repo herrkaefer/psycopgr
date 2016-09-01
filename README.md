@@ -1,7 +1,7 @@
 `psycopgr`: a pgRouting Python wrapper.
 
 
-## Goal
+## What psycopgr is for
 
 As said in [pgRouting docs](http://workshop.pgrouting.org/2.1.0-dev/en/chapters/wrapper.html):
 
@@ -10,11 +10,13 @@ Just considering the different ways that the cost can be calculated, makes it al
 
 Actually, in many applicatons you may need to modify the database tables and fill some computed values to fit your specific purpose, which is often done in a preprocessing stage by SQL, before real routing works. It is not appropriate to be wrapped.
 
-So after preprocessing things such as map data import, colums re-calculation and update, you can use `psycopgr` to do another simple thing: **computing routes from nodes to nodes.**
+So after preprocessing things such as database creation, map data import, talbes re-calculation and update, you are ready to use `psycopgr` to do another simple thing: **computing routes from nodes to nodes on real map.** 
+
+Note that `psycopgr` is never a general purpose wrapper of pgRouting. I am a novice in GIS and what I want from psycopgr is just routes (or costs) from places to places. For preprocessing stage, I have a post ["pgRouting for dummies"](http://herrkaefer.online/2016/08/30/pgrouting-for-dummies/) for my own reference.
 
 ## Tutorial
 
-Create a PGRouting object with database connection:
+Create a PGRouting object with database connection: (as you may guessed, `psycopgr` uses `psycopg2` as PostgreSQL driver)
 
 ```python
 pgr = PGRouting(database='mydb', user='user')
