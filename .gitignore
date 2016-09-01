@@ -89,5 +89,7 @@ ENV/
 # Rope project settings
 .ropeproject
 
+.DS_Store
+
 test/
 data/
