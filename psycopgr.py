@@ -2,6 +2,9 @@
 #
 # Yang Liu (gloolar@gmail.com)
 # 2016-08
+#
+# @todo
+# - node range check
 
 import psycopg2
 import psycopg2.extras
@@ -137,7 +140,12 @@ class PGRouting:
         sql = """
             SELECT *
             FROM pgr_dijkstraCost(
-                'select {id} as id, {source} as source, {target} as target, {cost} as cost, {reverse_cost} as reverse_cost from {table}',
+                'SELECT {id} as id,
+                        {source} as source,
+                        {target} as target,
+                        {cost} as cost,
+                        {reverse_cost} as reverse_cost
+                 FROM {table}',
                 %s,
                 %s,
                 {directed})
@@ -169,8 +177,12 @@ class PGRouting:
             SELECT *, v.lon::double precision, v.lat::double precision
             FROM
                 pgr_dijkstra(
-                    'SELECT {id} as id, {source} as source, {target} as target, {cost} as cost, {reverse_cost} as reverse_cost
-                    FROM {edge_table}',
+                    'SELECT {id} as id,
+                            {source} as source,
+                            {target} as target,
+                            {cost} as cost,
+                            {reverse_cost} as reverse_cost
+                     FROM {edge_table}',
                     %s,
                     %s,
                     {directed}) as r,
@@ -217,7 +229,16 @@ class PGRouting:
             SELECT *, v.lon::double precision, v.lat::double precision
             FROM
                 pgr_AStar(
-                    'SELECT {id}::INTEGER as id, {source}::INTEGER as source, {target}::INTEGER as target, {cost} as cost, {x1} as x1, {y1} as y1, {x2} as x2, {y2} as y2{reverse_cost} FROM {edge_table}',
+                    'SELECT {id}::INTEGER as id,
+                            {source}::INTEGER as source,
+                            {target}::INTEGER as target,
+                            {cost} as cost,
+                            {x1} as x1,
+                            {y1} as y1,
+                            {x2} as x2,
+                            {y2} as y2
+                            {reverse_cost}
+                     FROM {edge_table}',
                     %s,
                     %s,
                     {directed},
@@ -235,7 +256,7 @@ class PGRouting:
                     y1 = self.__edge_table['y1'],
                     x2 = self.__edge_table['x2'],
                     y2 = self.__edge_table['y2'],
-                    reverse_cost = ', reverse_cost' if self.__edge_table['directed'] and self.__edge_table['has_reverse_cost'] else '',
+                    reverse_cost = ', {} as reverse_cost'.format(self.__edge_table['reverse_cost']) if self.__edge_table['directed'] and self.__edge_table['has_reverse_cost'] else '',
                     directed = 'TRUE' if self.__edge_table['directed'] else 'FALSE',
                     has_rcost = 'TRUE' if self.__edge_table['directed'] and self.__edge_table['has_reverse_cost'] else 'FALSE')
         # print(sql)
@@ -297,7 +318,7 @@ class PGRouting:
 
     def __get_all_pairs_routings(self, start_nodes, end_nodes=None, end_speed=10.0):
         """
-        Get all-pairs shortest paths from start_nodes to end_nodes with costs.
+        Get all-pairs shortest paths from start_nodes to end_nodes with costs using Dijkstra algorithm.
         @param start_nodes and end_nodes are lists of PgrNode.
         @end_speed is speed from node to nearest vertex on way (unit: km/h)
         @return a dict with key (start_node, end_node), and path and cost in values.
@@ -383,14 +404,14 @@ class PGRouting:
         return costs
 
 
-    def __get_gpx(self, routings, gpx_file):
+    def get_gpx(self, routings, gpx_file=None):
         output = ''
         output = output + "<?xml version='1.0'?>\n"
         output = output + "<gpx version='1.1' creator='psycopgr' xmlns='http://www.topografix.com/GPX/1/1' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd'>\n"
 
         for key, value in routings.iteritems():
             output = output + " <trk>\n"
-            output = output + "  <name>{},{}->{},{}: {}</name>\n".format(key[0].lon, key[0].lat, key[1].lon, key[1].lat, value['cost'])
+            output = output + "  <name>{},{}->{},{}: {}</name>\n".format(key[0].lon, key[0].lat, key[1].lon, key[1].lat, value.get('cost', None))
             output = output + "  <trkseg>\n"
 
             for node in value['path']:
@@ -418,24 +439,28 @@ class PGRouting:
         if not isinstance(end_nodes, list):
             end_nodes = [end_nodes]
 
-        output = {}
+        routes = {}
+
         # many-to-one or one-to-one
         if len(end_nodes) == 1:
             for start_node in start_nodes:
-                routing = self.__get_one_to_one_routing(start_node, end_nodes[0], end_speed)
-                output.update(routing)
-            return output
+                r = self.__get_one_to_one_routing(start_node, end_nodes[0], end_speed)
+                routes.update(r)
 
         # one-to-many or many-to-many
-        output = self.__get_all_pairs_routings(start_nodes, end_nodes, end_speed)
+        else:
+            routes = self.__get_all_pairs_routings(start_nodes, end_nodes, end_speed)
 
         if gpx_file is not None:
-            self.__get_gpx(output, gpx_file)
+            self.get_gpx(routes, gpx_file)
+
+        return routes
 
 
     def get_costs(self, start_nodes, end_nodes, end_speed=10.0):
         """
-
+        Get costs from nodes to nodes without paths.
+        cost is travelling time in second.
         """
         if not isinstance(start_nodes, list):
             start_nodes = [start_nodes]
@@ -482,7 +507,7 @@ def test2():
     print("\nroutings:\n")
     print(routings)
 
-    gpx = pgr.__get_gpx(routings, 'b.gpx')
+    gpx = pgr.get_gpx(routings, 'b.gpx')
     # print(gpx)
 
 
@@ -494,7 +519,7 @@ def test3():
              PgrNode(None, 116.46806, 39.99857)]
 
     routings = pgr.__get_all_pairs_routings(nodes)
-    gpx = pgr.__get_gpx(routings, gpx_file='routings.gpx')
+    gpx = pgr.get_gpx(routings, gpx_file='routings.gpx')
 
     # costs = pgr.__get_all_pairs_costs(nodes)
     # pprint(costs)
@@ -523,27 +548,30 @@ def test5():
              PgrNode(None, 116.46806, 39.99857)]
 
     routings = pgr.get_routes(nodes, nodes)
-    pprint(routings)
+    # pprint(routings)
 
     costs = pgr.get_costs(nodes, nodes)
-    pprint(costs)
+    # pprint(costs)
 
     keys = [(s, t) for s in nodes for t in nodes if s != t]
     for s, t in keys:
-        print("\n")
+        r = pgr.get_routes(s, t)
+        c = pgr.get_costs(s, t)
+        print("\ncompare")
         print(routings[(s, t)]['cost'])
         print(costs[(s, t)])
+        print(r[(s,t)]['cost'])
+        print(c[(s,t)])
 
 
-    s = nodes[0]
-    t = nodes[1]
-    r = pgr.get_routes(s, t)
-    c = pgr.get_costs(s, t)
-    print(r[(s, t)]['cost'])
-    print(c[(s, t)])
+    # s = nodes[0]
+    # t = nodes[3]
+    # r = pgr.get_routes(s, t, gpx_file='r-astar.gpx')
+    # c = pgr.get_costs(s, t)
+    # print(r[(s, t)]['cost'])
+    # print(c[(s, t)])
 
-
-    # gpx = pgr.__get_gpx(routings, gpx_file='routings.gpx')
+    # pgr.get_gpx({(s, t): routings[(s, t)]}, gpx_file='r-dijkstra.gpx')
 
 
 if __name__ == '__main__':
