@@ -69,7 +69,7 @@ class PGRouting:
         """
         Set edge table defination if it is different from the default.
         """
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             if not k in self.__edge_table.keys():
                 print("WARNNING: set_edge_table: invaid key {}".format(k))
                 continue
@@ -409,7 +409,7 @@ class PGRouting:
         output = output + "<?xml version='1.0'?>\n"
         output = output + "<gpx version='1.1' creator='psycopgr' xmlns='http://www.topografix.com/GPX/1/1' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd'>\n"
 
-        for key, value in routings.iteritems():
+        for key, value in routings.items():
             output = output + " <trk>\n"
             output = output + "  <name>{},{}->{},{}: {}</name>\n".format(key[0].lon, key[0].lat, key[1].lon, key[1].lat, value.get('cost', None))
             output = output + "  <trkseg>\n"
@@ -472,7 +472,7 @@ class PGRouting:
         if len(end_nodes) == 1:
             for start_node in start_nodes:
                 routing = self.__get_one_to_one_routing(start_node, end_nodes[0], end_speed)
-                for k, v in routing.iteritems():
+                for k, v in routing.items():
                     output.update({k: v['cost']})
             return output
 
@@ -564,14 +564,14 @@ def test5():
         print(c[(s,t)])
 
 
-    # s = nodes[0]
-    # t = nodes[3]
-    # r = pgr.get_routes(s, t, gpx_file='r-astar.gpx')
-    # c = pgr.get_costs(s, t)
-    # print(r[(s, t)]['cost'])
-    # print(c[(s, t)])
+    s = nodes[0]
+    t = nodes[3]
+    r = pgr.get_routes(s, t, gpx_file='test/r-astar.gpx')
+    c = pgr.get_costs(s, t)
+    print(r[(s, t)]['cost'])
+    print(c[(s, t)])
 
-    # pgr.get_gpx({(s, t): routings[(s, t)]}, gpx_file='r-dijkstra.gpx')
+    pgr.get_gpx({(s, t): routings[(s, t)]}, gpx_file='test/r-dijkstra.gpx')
 
 
 if __name__ == '__main__':
