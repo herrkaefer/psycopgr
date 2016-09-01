@@ -8,6 +8,7 @@ import psycopg2.extras
 from collections import namedtuple
 from pprint import pprint
 
+
 PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
 
 
@@ -76,7 +77,7 @@ class PGRouting:
         print(self.__edge_table)
 
 
-    def find_nearest_vertices(self, nodes):
+    def __find_nearest_vertices(self, nodes):
         """
         Find nearest vertex of nodes.
         param nodes are list of PgrNode.
@@ -105,7 +106,7 @@ class PGRouting:
         return output
 
 
-    def node_distance(self, node1, node2):
+    def __node_distance(self, node1, node2):
         """
         Get distance between two nodes (unit: m)
         """
@@ -261,7 +262,7 @@ class PGRouting:
             return {}
 
 
-    def get_routing(self, start_node, end_node, end_speed=10.0):
+    def __get_one_to_one_routing(self, start_node, end_node, end_speed=10.0):
         """
         Get one-to-one shorest path using A* algorithm.
         @param start_node and end_node are of PgrNode.
@@ -274,8 +275,8 @@ class PGRouting:
             return {}
 
         end_speed = end_speed*1000.0/3600.0 # km/h -> m/s
-        vertices = self.find_nearest_vertices([start_node, end_node])
-        node_vertex_costs = [self.node_distance(start_node, vertices[0])/end_speed, self.node_distance(end_node, vertices[1])/end_speed]
+        vertices = self.__find_nearest_vertices([start_node, end_node])
+        node_vertex_costs = [self.__node_distance(start_node, vertices[0])/end_speed, self.__node_distance(end_node, vertices[1])/end_speed]
 
         # routing between vertices
         main_routing = self.astar(vertices[0].id, vertices[1].id)
@@ -294,7 +295,7 @@ class PGRouting:
         return routing
 
 
-    def get_all_pairs_routings(self, start_nodes, end_nodes=None, end_speed=10.0):
+    def __get_all_pairs_routings(self, start_nodes, end_nodes=None, end_speed=10.0):
         """
         Get all-pairs shortest paths from start_nodes to end_nodes with costs.
         @param start_nodes and end_nodes are lists of PgrNode.
@@ -313,9 +314,9 @@ class PGRouting:
 
         node_list = list(node_set)
 
-        vertices = self.find_nearest_vertices(node_list)
+        vertices = self.__find_nearest_vertices(node_list)
         node_vertex = {node: {'vertex': vertex,
-                              'cost': self.node_distance(node, vertex)/end_speed}
+                              'cost': self.__node_distance(node, vertex)/end_speed}
                        for node, vertex in zip(node_list, vertices)}
 
         start_vids = [node_vertex[node]['vertex'].id for node in start_nodes]
@@ -340,7 +341,7 @@ class PGRouting:
         return routings
 
 
-    def get_all_pairs_costs(self, start_nodes, end_nodes=None, end_speed=10.0):
+    def __get_all_pairs_costs(self, start_nodes, end_nodes=None, end_speed=10.0):
         """
         Get all-pairs shortest paths' costs without path details.
         @param start_nodes and end_nodes are lists of PgrNode.
@@ -359,9 +360,9 @@ class PGRouting:
             end_nodes = start_nodes
 
         node_list = list(node_set)
-        vertices = self.find_nearest_vertices(node_list)
+        vertices = self.__find_nearest_vertices(node_list)
         node_vertex = {node: {'vertex': vertex,
-                              'cost': self.node_distance(node, vertex)/end_speed}
+                              'cost': self.__node_distance(node, vertex)/end_speed}
                        for node, vertex in zip(node_list, vertices)}
 
         start_vids = [node_vertex[node]['vertex'].id for node in start_nodes]
@@ -382,7 +383,7 @@ class PGRouting:
         return costs
 
 
-    def get_gpx(self, routings, gpx_file=None):
+    def __get_gpx(self, routings, gpx_file):
         output = ''
         output = output + "<?xml version='1.0'?>\n"
         output = output + "<gpx version='1.1' creator='psycopgr' xmlns='http://www.topografix.com/GPX/1/1' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd'>\n"
@@ -406,6 +407,51 @@ class PGRouting:
             print("gpx saved to {}".format(gpx_file))
 
         return output
+
+
+    def get_routes(self, start_nodes, end_nodes, end_speed=10.0, gpx_file=None):
+        """
+        Get routes from nodes to nodes.
+        """
+        if not isinstance(start_nodes, list):
+            start_nodes = [start_nodes]
+        if not isinstance(end_nodes, list):
+            end_nodes = [end_nodes]
+
+        output = {}
+        # many-to-one or one-to-one
+        if len(end_nodes) == 1:
+            for start_node in start_nodes:
+                routing = self.__get_one_to_one_routing(start_node, end_nodes[0], end_speed)
+                output.update(routing)
+            return output
+
+        # one-to-many or many-to-many
+        output = self.__get_all_pairs_routings(start_nodes, end_nodes, end_speed)
+
+        if gpx_file is not None:
+            self.__get_gpx(output, gpx_file)
+
+
+    def get_costs(self, start_nodes, end_nodes, end_speed=10.0):
+        """
+
+        """
+        if not isinstance(start_nodes, list):
+            start_nodes = [start_nodes]
+        if not isinstance(end_nodes, list):
+            end_nodes = [end_nodes]
+
+        output = {}
+        # many-to-one or one-to-one
+        if len(end_nodes) == 1:
+            for start_node in start_nodes:
+                routing = self.__get_one_to_one_routing(start_node, end_nodes[0], end_speed)
+                for k, v in routing.iteritems():
+                    output.update({k: v['cost']})
+            return output
+
+        return self.__get_all_pairs_costs(start_nodes, end_nodes, end_speed)
 
 
 def test1():
@@ -436,7 +482,7 @@ def test2():
     print("\nroutings:\n")
     print(routings)
 
-    gpx = pgr.get_gpx(routings, 'b.gpx')
+    gpx = pgr.__get_gpx(routings, 'b.gpx')
     # print(gpx)
 
 
@@ -447,10 +493,10 @@ def test3():
              PgrNode(None, 116.30560, 39.95458),
              PgrNode(None, 116.46806, 39.99857)]
 
-    routings = pgr.get_all_pairs_routings(nodes)
-    gpx = pgr.get_gpx(routings, gpx_file='routings.gpx')
+    routings = pgr.__get_all_pairs_routings(nodes)
+    gpx = pgr.__get_gpx(routings, gpx_file='routings.gpx')
 
-    # costs = pgr.get_all_pairs_costs(nodes)
+    # costs = pgr.__get_all_pairs_costs(nodes)
     # pprint(costs)
 
     # routing = pgr.get_routing(nodes[0], nodes[1])
@@ -465,9 +511,40 @@ def test4():
     node1 = PgrNode(None, 116.30197, 40.05626)
     node2 = PgrNode(None, 116.30582, 40.05690)
 
-    dist = pgr.node_distance(node1, node2)
+    dist = pgr.__node_distance(node1, node2)
     print(dist)
 
 
+def test5():
+    pgr = PGRouting(database='mydb', user='herrk')
+    nodes = [PgrNode(None, 116.30150, 40.05500),
+             PgrNode(None, 116.36577, 40.00253),
+             PgrNode(None, 116.30560, 39.95458),
+             PgrNode(None, 116.46806, 39.99857)]
+
+    routings = pgr.get_routes(nodes, nodes)
+    pprint(routings)
+
+    costs = pgr.get_costs(nodes, nodes)
+    pprint(costs)
+
+    keys = [(s, t) for s in nodes for t in nodes if s != t]
+    for s, t in keys:
+        print("\n")
+        print(routings[(s, t)]['cost'])
+        print(costs[(s, t)])
+
+
+    s = nodes[0]
+    t = nodes[1]
+    r = pgr.get_routes(s, t)
+    c = pgr.get_costs(s, t)
+    print(r[(s, t)]['cost'])
+    print(c[(s, t)])
+
+
+    # gpx = pgr.__get_gpx(routings, gpx_file='routings.gpx')
+
+
 if __name__ == '__main__':
-    test3()
+    test5()
