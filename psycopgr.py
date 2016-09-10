@@ -11,34 +11,38 @@ import psycopg2.extras
 from collections import namedtuple
 from pprint import pprint
 
+__all__ = ['PgrNode', 'PGRouting']
+
 
 PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
 
 
 class PGRouting:
 
-    def __init__(self, database, user, host='localhost', port='5432'):
-        self.__conn = None
-        self.__cur = None
-        self.__connect_to_db(database, user, host, port)
+    __conn = None
+    __cur = None
 
-        # default edge table defination
-        self.__edge_table = {
-            'table': 'ways',
-            'id': 'gid',
-            'source': 'source',
-            'target': 'target',
-            'cost': 'cost_s', # driving time in second
-            'reverse_cost': 'reverse_cost_s', # reverse driving time in second
-            'x1': 'x1',
-            'y1': 'y1',
-            'x2': 'x2',
-            'y2': 'y2',
-            'geometry': 'the_geom',
-            'has_reverse_cost': True,
-            'directed': True,
-            'srid': 4326
-            }
+    # default edge table defination
+    __edge_table = {
+        'table': 'ways',
+        'id': 'gid',
+        'source': 'source',
+        'target': 'target',
+        'cost': 'cost_s', # driving time in second
+        'reverse_cost': 'reverse_cost_s', # reverse driving time in second
+        'x1': 'x1',
+        'y1': 'y1',
+        'x2': 'x2',
+        'y2': 'y2',
+        'geometry': 'the_geom',
+        'has_reverse_cost': True,
+        'directed': True,
+        'srid': 4326
+        }
+
+
+    def __init__(self, database, user, host='localhost', port='5432'):
+        self.__connect_to_db(database, user, host, port)
 
 
     def __del__(self):
