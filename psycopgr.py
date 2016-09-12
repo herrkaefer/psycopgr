@@ -23,7 +23,7 @@ class PGRouting:
     __cur = None
 
     # default edge table defination
-    __edge_table = {
+    __meta_data = {
         'table': 'ways',
         'id': 'gid',
         'source': 'source',
@@ -69,19 +69,19 @@ class PGRouting:
             self.__conn.close()
 
 
-    def set_edge_table(self, **kwargs):
+    def set_meta_data(self, **kwargs):
         """
         Set edge table defination if it is different from the default.
         """
         for k, v in kwargs.items():
-            if not k in self.__edge_table.keys():
-                print("WARNNING: set_edge_table: invaid key {}".format(k))
+            if not k in self.__meta_data.keys():
+                print("WARNNING: set_meta_data: invaid key {}".format(k))
                 continue
             if not isinstance(v, (str, bool)):
-                print("WARNNING: set_edge_table: invalid value {}".format(v))
+                print("WARNNING: set_meta_data: invalid value {}".format(v))
                 continue
-            self.__edge_table[k] = v
-        print(self.__edge_table)
+            self.__meta_data[k] = v
+        print(self.__meta_data)
 
 
     def __find_nearest_vertices(self, nodes):
@@ -95,7 +95,7 @@ class PGRouting:
             FROM ways_vertices_pgr
             ORDER BY the_geom <-> ST_SetSRID(ST_Point(%s,%s),{srid})
             LIMIT 1
-            """.format(srid=self.__edge_table['srid'])
+            """.format(srid=self.__meta_data['srid'])
 
         output = []
         for node in nodes:
@@ -122,7 +122,7 @@ class PGRouting:
                 ST_GeogFromText('SRID={srid};POINT({lon1} {lat1})'),
                 ST_GeogFromText('SRID={srid};POINT({lon2} {lat2})')
             );
-            """.format(srid=self.__edge_table['srid'],
+            """.format(srid=self.__meta_data['srid'],
                        lon1=node1.lon, lat1=node1.lat,
                        lon2=node2.lon, lat2=node2.lat)
 
@@ -154,13 +154,13 @@ class PGRouting:
                 %s,
                 {directed})
             """.format(
-                    table = self.__edge_table['table'],
-                    id = self.__edge_table['id'],
-                    source = self.__edge_table['source'],
-                    target = self.__edge_table['target'],
-                    cost = self.__edge_table['cost'],
-                    reverse_cost = self.__edge_table['reverse_cost'],
-                    directed = 'TRUE' if self.__edge_table['directed'] else 'FALSE')
+                    table = self.__meta_data['table'],
+                    id = self.__meta_data['id'],
+                    source = self.__meta_data['source'],
+                    target = self.__meta_data['target'],
+                    cost = self.__meta_data['cost'],
+                    reverse_cost = self.__meta_data['reverse_cost'],
+                    directed = 'TRUE' if self.__meta_data['directed'] else 'FALSE')
 
         try:
             self.__cur.execute(sql, (start_vids, end_vids))
@@ -194,13 +194,13 @@ class PGRouting:
             WHERE r.node=v.id
             ORDER BY r.seq;
             """.format(
-                    edge_table = self.__edge_table['table'],
-                    id = self.__edge_table['id'],
-                    source = self.__edge_table['source'],
-                    target = self.__edge_table['target'],
-                    cost = self.__edge_table['cost'],
-                    reverse_cost = self.__edge_table['reverse_cost'],
-                    directed = 'TRUE' if self.__edge_table['directed'] else 'FALSE')
+                    edge_table = self.__meta_data['table'],
+                    id = self.__meta_data['id'],
+                    source = self.__meta_data['source'],
+                    target = self.__meta_data['target'],
+                    cost = self.__meta_data['cost'],
+                    reverse_cost = self.__meta_data['reverse_cost'],
+                    directed = 'TRUE' if self.__meta_data['directed'] else 'FALSE')
 
         try:
             self.__cur.execute(sql, (start_vids, end_vids))
@@ -251,18 +251,18 @@ class PGRouting:
             WHERE r.id1=v.id
             ORDER BY r.seq;
             """.format(
-                    edge_table=self.__edge_table['table'],
-                    id = self.__edge_table['id'],
-                    source = self.__edge_table['source'],
-                    target = self.__edge_table['target'],
-                    cost = self.__edge_table['cost'],
-                    x1 = self.__edge_table['x1'],
-                    y1 = self.__edge_table['y1'],
-                    x2 = self.__edge_table['x2'],
-                    y2 = self.__edge_table['y2'],
-                    reverse_cost = ', {} as reverse_cost'.format(self.__edge_table['reverse_cost']) if self.__edge_table['directed'] and self.__edge_table['has_reverse_cost'] else '',
-                    directed = 'TRUE' if self.__edge_table['directed'] else 'FALSE',
-                    has_rcost = 'TRUE' if self.__edge_table['directed'] and self.__edge_table['has_reverse_cost'] else 'FALSE')
+                    edge_table=self.__meta_data['table'],
+                    id = self.__meta_data['id'],
+                    source = self.__meta_data['source'],
+                    target = self.__meta_data['target'],
+                    cost = self.__meta_data['cost'],
+                    x1 = self.__meta_data['x1'],
+                    y1 = self.__meta_data['y1'],
+                    x2 = self.__meta_data['x2'],
+                    y2 = self.__meta_data['y2'],
+                    reverse_cost = ', {} as reverse_cost'.format(self.__meta_data['reverse_cost']) if self.__meta_data['directed'] and self.__meta_data['has_reverse_cost'] else '',
+                    directed = 'TRUE' if self.__meta_data['directed'] else 'FALSE',
+                    has_rcost = 'TRUE' if self.__meta_data['directed'] and self.__meta_data['has_reverse_cost'] else 'FALSE')
         # print(sql)
 
         try:
@@ -485,7 +485,7 @@ class PGRouting:
 
 def test1():
     pgr = PGRouting(database='pgroutingtest', user='herrk')
-    pgr.set_edge_table(table='edge_table', id='id', cost='cost')
+    pgr.set_meta_data(table='edge_table', id='id', cost='cost')
 
     costs = pgr.dijkstra_cost([2, 11], [3, 5])
     print("\nall-pairs costs:\n")
