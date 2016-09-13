@@ -20,8 +20,7 @@ PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
 
 
 class PGRouting(object):
-    """
-    Computing shortest paths and costs from nodes to nodes represented in
+    """Computing shortest paths and costs from nodes to nodes represented in
     geographic coordinates, by wrapping pgRouting.
     """
 
@@ -78,8 +77,7 @@ class PGRouting(object):
 
 
     def __find_nearest_vertices(self, nodes):
-        """
-        Find nearest vertex of nodes.
+        """Find nearest vertex of nodes on the way.
 
         Args:
             nodes: list of PgrNode.
@@ -115,8 +113,7 @@ class PGRouting(object):
 
 
     def __node_distance(self, node1, node2):
-        """
-        Get distance between two nodes (unit: m)
+        """Get distance between two nodes (unit: m).
         """
         sql = """
             SELECT ST_Distance(
@@ -138,8 +135,7 @@ class PGRouting(object):
 
 
     def set_meta_data(self, **kwargs):
-        """
-        Set meta data of tables if it is different from the default.
+        """Set meta data of tables if it is different from the default.
         """
         for k, v in kwargs.items():
             if not k in self.__meta_data.keys():
@@ -153,8 +149,7 @@ class PGRouting(object):
 
 
     def dijkstra_cost(self, start_vids, end_vids):
-        """
-        Get all-pairs costs among way nodes without paths using
+        """Get all-pairs costs among way nodes without paths using
         pgr_dijkstraCost function.
         """
 
@@ -193,8 +188,7 @@ class PGRouting(object):
 
 
     def dijkstra(self, start_vids, end_vids):
-        """
-        Get all-pairs shortest paths with costs among way nodes using
+        """Get all-pairs shortest paths with costs among way nodes using
         pgr_dijkstra function.
         """
 
@@ -249,8 +243,8 @@ class PGRouting(object):
 
 
     def astar(self, start_vid, end_vid):
-        """
-        Get one-to-one shortest path between way nodes using pgr_AStar function
+        """Get one-to-one shortest path between way nodes using pgr_AStar
+        function.
         """
 
         sql = """
@@ -321,11 +315,13 @@ class PGRouting(object):
     def __get_one_to_one_routing(self, start_node, end_node, end_speed=10.0):
         """Get one-to-one shorest path using A* algorithm.
 
-        @param start_node and end_node are of PgrNode.
-        @end_speed is speed from node to nearest vertex on way (unit: km/h)
-        @return routing dict with key (start_node, end_node), and path and cost
-        in values.
-        cost is travelling time with unit second.
+        Args:
+            start_node and end_node: PgrNode.
+            end_speed: speed from node to nearest vertex on way (unit: km/h)
+
+        Returns:
+            Routing dict with key (start_node, end_node), and path and cost
+            in values. Cost is travelling time in second.
         """
 
         if start_node == end_node:
@@ -359,11 +355,13 @@ class PGRouting(object):
         """Get all-pairs shortest paths from start_nodes to end_nodes with costs
         using Dijkstra algorithm.
 
-        @param start_nodes and end_nodes are lists of PgrNode.
-        @end_speed is speed from node to nearest vertex on way (unit: km/h)
-        @return a dict with key (start_node, end_node), and path and cost in
-        values.
-        cost is travelling time with unit second.
+        Args:
+            start_nodes and end_nodes: lists of PgrNode.
+            end_speed: speed from node to nearest vertex on way (unit: km/h)
+
+        Returns:
+            A dict with key (start_node, end_node), and path and cost in
+            values. Cost is travelling time with unit second.
         """
 
         end_speed = end_speed*1000.0/3600.0 # km/h -> m/s
@@ -406,11 +404,14 @@ class PGRouting(object):
     def __get_all_pairs_costs(self, start_nodes, end_nodes=None, end_speed=10.0):
         """Get all-pairs shortest paths' costs without path details.
 
-        @param start_nodes and end_nodes are lists of PgrNode.
-        @param end_nodes is None means it is the same as start_nodes.
-        @end_speed is speed from node to nearest vertex on way (unit: km/h).
-        @return a dict with key (start_node, end_node), and values cost.
-        cost is travelling time with unit second.
+        Args:
+            start_nodes and end_nodes: lists of PgrNode. end_nodes is None means
+                it is the same as start_nodes.
+            end_speed: speed from node to nearest vertex on way (unit: km/h).
+
+        Returns:
+            A dict with key (start_node, end_node), and values cost. Cost is
+            travelling time in second.
         """
 
         end_speed = end_speed*1000.0/3600.0 # km/h -> m/s
@@ -446,8 +447,7 @@ class PGRouting(object):
 
 
     def get_routes(self, start_nodes, end_nodes, end_speed=10.0, gpx_file=None):
-        """
-        Get shortest paths from nodes to nodes.
+        """Get shortest paths from nodes to nodes.
 
         Args:
             start_nodes: PgrNode list for many nodes, or PgrNode for one node.
@@ -490,8 +490,7 @@ class PGRouting(object):
 
 
     def get_costs(self, start_nodes, end_nodes, end_speed=10.0):
-        """
-        Get costs from nodes to nodes without paths.
+        """Get costs from nodes to nodes without paths.
 
         Args:
             start_nodes: PgrNode list for many nodes, or PgrNode for one node.
@@ -522,8 +521,7 @@ class PGRouting(object):
 
 
     def get_gpx(self, routes, gpx_file=None):
-        """
-        Get gpx representation of routes.
+        """Get gpx representation of routes.
 
         Args:
             routes: routes returned by get_routes.
