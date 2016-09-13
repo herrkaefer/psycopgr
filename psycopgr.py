@@ -3,13 +3,15 @@
 # Yang Liu (gloolar@gmail.com)
 # 2016-08
 #
-# @todo
-# - node range check
+# TODO
+# - Node range check
+# - Thinking about PgrNode as key: format node lat, lon precision?
 
 import psycopg2
 import psycopg2.extras
 from collections import namedtuple
-from pprint import pprint
+# from pprint import pprint
+
 
 __all__ = ['PgrNode', 'PGRouting']
 
@@ -17,7 +19,11 @@ __all__ = ['PgrNode', 'PGRouting']
 PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
 
 
-class PGRouting:
+class PGRouting(object):
+    """
+    Computing shortest paths and costs from nodes to nodes represented in
+    geographic coordinates, by wrapping pgRouting.
+    """
 
     __conn = None
     __cur = None
@@ -38,7 +44,7 @@ class PGRouting:
         'has_reverse_cost': True,
         'directed': True,
         'srid': 4326
-        }
+    }
 
 
     def __init__(self, database, user, host='localhost', port='5432'):
@@ -56,8 +62,10 @@ class PGRouting:
             self.__conn.close()
 
         try:
-            self.__conn = psycopg2.connect(database=database, user=user, host=host, port=port)
-            self.__cur = self.__conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            self.__conn = psycopg2.connect(database=database, user=user,
+                                           host=host, port=port)
+            self.__cur = self.__conn.cursor(
+                cursor_factory= psycopg2.extras.DictCursor)
         except psycopg2.Error as e:
             print(e.pgerror)
 
@@ -69,27 +77,17 @@ class PGRouting:
             self.__conn.close()
 
 
-    def set_meta_data(self, **kwargs):
-        """
-        Set edge table defination if it is different from the default.
-        """
-        for k, v in kwargs.items():
-            if not k in self.__meta_data.keys():
-                print("WARNNING: set_meta_data: invaid key {}".format(k))
-                continue
-            if not isinstance(v, (str, bool)):
-                print("WARNNING: set_meta_data: invalid value {}".format(v))
-                continue
-            self.__meta_data[k] = v
-        print(self.__meta_data)
-
-
     def __find_nearest_vertices(self, nodes):
         """
         Find nearest vertex of nodes.
-        param nodes are list of PgrNode.
-        return list of PgrNode.
+
+        Args:
+            nodes: list of PgrNode.
+
+        Returns:
+            list of PgrNode.
         """
+
         sql = """
             SELECT id, lon::double precision, lat::double precision
             FROM ways_vertices_pgr
@@ -103,9 +101,12 @@ class PGRouting:
                 self.__cur.execute(sql, (node.lon, node.lat))
                 results = self.__cur.fetchall()
                 if len(results) > 0:
-                    output.append(PgrNode(results[0]['id'], results[0]['lon'], results[0]['lat']))
+                    output.append(PgrNode(results[0]['id'],
+                                  results[0]['lon'],
+                                  results[0]['lat']))
                 else:
-                    print('cannot find nearest vid for ({}, {})'.format(node[0], node[1]))
+                    print('cannot find nearest vid for ({}, {})'.format(
+                          node[0], node[1]))
                     return None
             except psycopg2.Error as e:
                 print(e.pgerror)
@@ -136,9 +137,25 @@ class PGRouting:
             return None
 
 
+    def set_meta_data(self, **kwargs):
+        """
+        Set meta data of tables if it is different from the default.
+        """
+        for k, v in kwargs.items():
+            if not k in self.__meta_data.keys():
+                print("WARNNING: set_meta_data: invaid key {}".format(k))
+                continue
+            if not isinstance(v, (str, bool)):
+                print("WARNNING: set_meta_data: invalid value {}".format(v))
+                continue
+            self.__meta_data[k] = v
+        print(self.__meta_data)
+
+
     def dijkstra_cost(self, start_vids, end_vids):
         """
-        Get all-pairs costs without paths using pgr_dijkstraCost function.
+        Get all-pairs costs among way nodes without paths using
+        pgr_dijkstraCost function.
         """
 
         sql = """
@@ -160,12 +177,15 @@ class PGRouting:
                     target = self.__meta_data['target'],
                     cost = self.__meta_data['cost'],
                     reverse_cost = self.__meta_data['reverse_cost'],
-                    directed = 'TRUE' if self.__meta_data['directed'] else 'FALSE')
+                    directed = 'TRUE'
+                               if self.__meta_data['directed']
+                               else 'FALSE')
 
         try:
             self.__cur.execute(sql, (start_vids, end_vids))
             results = self.__cur.fetchall()
-            return {(r['start_vid'], r['end_vid']) : r['agg_cost'] for r in results}
+            return {(r['start_vid'], r['end_vid']) :
+                    r['agg_cost'] for r in results}
 
         except psycopg2.Error as e:
             print(e.pgerror)
@@ -174,7 +194,8 @@ class PGRouting:
 
     def dijkstra(self, start_vids, end_vids):
         """
-        Get all-pairs shortest paths with costs using pgr_dijkstra function.
+        Get all-pairs shortest paths with costs among way nodes using
+        pgr_dijkstra function.
         """
 
         sql = """
@@ -200,7 +221,9 @@ class PGRouting:
                     target = self.__meta_data['target'],
                     cost = self.__meta_data['cost'],
                     reverse_cost = self.__meta_data['reverse_cost'],
-                    directed = 'TRUE' if self.__meta_data['directed'] else 'FALSE')
+                    directed = 'TRUE'
+                               if self.__meta_data['directed']
+                               else 'FALSE')
 
         try:
             self.__cur.execute(sql, (start_vids, end_vids))
@@ -213,7 +236,8 @@ class PGRouting:
                 if output.get(key, None) is None:
                     output[key] = {'path': [], 'cost': -1}
 
-                output[key]['path'].append(PgrNode(r['node'], r['lon'], r['lat']))
+                output[key]['path'].append(
+                    PgrNode(r['node'], r['lon'], r['lat']))
                 if r['edge'] < 0:
                     output[key]['cost'] = r['agg_cost']
 
@@ -226,7 +250,7 @@ class PGRouting:
 
     def astar(self, start_vid, end_vid):
         """
-        Get one-to-one shortest path using pgr_AStar function
+        Get one-to-one shortest path between way nodes using pgr_AStar function
         """
 
         sql = """
@@ -260,9 +284,16 @@ class PGRouting:
                     y1 = self.__meta_data['y1'],
                     x2 = self.__meta_data['x2'],
                     y2 = self.__meta_data['y2'],
-                    reverse_cost = ', {} as reverse_cost'.format(self.__meta_data['reverse_cost']) if self.__meta_data['directed'] and self.__meta_data['has_reverse_cost'] else '',
-                    directed = 'TRUE' if self.__meta_data['directed'] else 'FALSE',
-                    has_rcost = 'TRUE' if self.__meta_data['directed'] and self.__meta_data['has_reverse_cost'] else 'FALSE')
+                    reverse_cost = ', {} as reverse_cost'.format(
+                                   self.__meta_data['reverse_cost'])
+                                   if self.__meta_data['directed'] and
+                                      self.__meta_data['has_reverse_cost']
+                                   else '',
+                    directed = 'TRUE'if self.__meta_data['directed'] else 'FALSE',
+                    has_rcost = 'TRUE'
+                                if self.__meta_data['directed'] and
+                                   self.__meta_data['has_reverse_cost']
+                                else 'FALSE')
         # print(sql)
 
         try:
@@ -288,11 +319,12 @@ class PGRouting:
 
 
     def __get_one_to_one_routing(self, start_node, end_node, end_speed=10.0):
-        """
-        Get one-to-one shorest path using A* algorithm.
+        """Get one-to-one shorest path using A* algorithm.
+
         @param start_node and end_node are of PgrNode.
         @end_speed is speed from node to nearest vertex on way (unit: km/h)
-        @return routing dict with key (start_node, end_node), and path and cost in values.
+        @return routing dict with key (start_node, end_node), and path and cost
+        in values.
         cost is travelling time with unit second.
         """
 
@@ -301,7 +333,10 @@ class PGRouting:
 
         end_speed = end_speed*1000.0/3600.0 # km/h -> m/s
         vertices = self.__find_nearest_vertices([start_node, end_node])
-        node_vertex_costs = [self.__node_distance(start_node, vertices[0])/end_speed, self.__node_distance(end_node, vertices[1])/end_speed]
+        node_vertex_costs = [
+            self.__node_distance(start_node, vertices[0])/end_speed,
+            self.__node_distance(end_node, vertices[1])/end_speed
+        ]
 
         # routing between vertices
         main_routing = self.astar(vertices[0].id, vertices[1].id)
@@ -321,11 +356,13 @@ class PGRouting:
 
 
     def __get_all_pairs_routings(self, start_nodes, end_nodes=None, end_speed=10.0):
-        """
-        Get all-pairs shortest paths from start_nodes to end_nodes with costs using Dijkstra algorithm.
+        """Get all-pairs shortest paths from start_nodes to end_nodes with costs
+        using Dijkstra algorithm.
+
         @param start_nodes and end_nodes are lists of PgrNode.
         @end_speed is speed from node to nearest vertex on way (unit: km/h)
-        @return a dict with key (start_node, end_node), and path and cost in values.
+        @return a dict with key (start_node, end_node), and path and cost in
+        values.
         cost is travelling time with unit second.
         """
 
@@ -367,8 +404,8 @@ class PGRouting:
 
 
     def __get_all_pairs_costs(self, start_nodes, end_nodes=None, end_speed=10.0):
-        """
-        Get all-pairs shortest paths' costs without path details.
+        """Get all-pairs shortest paths' costs without path details.
+
         @param start_nodes and end_nodes are lists of PgrNode.
         @param end_nodes is None means it is the same as start_nodes.
         @end_speed is speed from node to nearest vertex on way (unit: km/h).
@@ -387,7 +424,7 @@ class PGRouting:
         node_list = list(node_set)
         vertices = self.__find_nearest_vertices(node_list)
         node_vertex = {node: {'vertex': vertex,
-                              'cost': self.__node_distance(node, vertex)/end_speed}
+                              'cost': self.__node_distance(node, vertex) / end_speed}
                        for node, vertex in zip(node_list, vertices)}
 
         start_vids = [node_vertex[node]['vertex'].id for node in start_nodes]
@@ -408,36 +445,23 @@ class PGRouting:
         return costs
 
 
-    def get_gpx(self, routings, gpx_file=None):
-        output = ''
-        output = output + "<?xml version='1.0'?>\n"
-        output = output + "<gpx version='1.1' creator='psycopgr' xmlns='http://www.topografix.com/GPX/1/1' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd'>\n"
-
-        for key, value in routings.items():
-            output = output + " <trk>\n"
-            output = output + "  <name>{},{}->{},{}: {}</name>\n".format(key[0].lon, key[0].lat, key[1].lon, key[1].lat, value.get('cost', None))
-            output = output + "  <trkseg>\n"
-
-            for node in value['path']:
-                # print(node)
-                output = output + "   <trkpt lat='{}' lon='{}'>\n".format(node.lat, node.lon)
-                output = output + "   </trkpt>\n"
-            output = output + "  </trkseg>\n  </trk>\n"
-
-        output = output + "</gpx>\n"
-
-        if gpx_file is not None:
-            with open(gpx_file, "w") as f:
-                f.write(output)
-            print("gpx saved to {}".format(gpx_file))
-
-        return output
-
-
     def get_routes(self, start_nodes, end_nodes, end_speed=10.0, gpx_file=None):
         """
-        Get routes from nodes to nodes.
+        Get shortest paths from nodes to nodes.
+
+        Args:
+            start_nodes: PgrNode list for many nodes, or PgrNode for one node.
+            end_nodes: PgrNode list for many nodes, or PgrNode for one node.
+            end_speed: speed for travelling from end node to corresponding
+                nearest node on the way.
+            gpx_file: name of file for saving the paths as gpx format.
+
+        Returns:
+            A dict mapping node pair (start_node, end_node) to dict of
+            corresponding path and cost. Path is a Pgrnode list, and cost is
+            travelling time in second.
         """
+
         if not isinstance(start_nodes, list):
             start_nodes = [start_nodes]
         if not isinstance(end_nodes, list):
@@ -448,12 +472,16 @@ class PGRouting:
         # many-to-one or one-to-one
         if len(end_nodes) == 1:
             for start_node in start_nodes:
-                r = self.__get_one_to_one_routing(start_node, end_nodes[0], end_speed)
+                r = self.__get_one_to_one_routing(start_node,
+                                                  end_nodes[0],
+                                                  end_speed)
                 routes.update(r)
 
         # one-to-many or many-to-many
         else:
-            routes = self.__get_all_pairs_routings(start_nodes, end_nodes, end_speed)
+            routes = self.__get_all_pairs_routings(start_nodes,
+                                                   end_nodes,
+                                                   end_speed)
 
         if gpx_file is not None:
             self.get_gpx(routes, gpx_file)
@@ -464,8 +492,18 @@ class PGRouting:
     def get_costs(self, start_nodes, end_nodes, end_speed=10.0):
         """
         Get costs from nodes to nodes without paths.
-        cost is travelling time in second.
+
+        Args:
+            start_nodes: PgrNode list for many nodes, or PgrNode for one node.
+            end_nodes: PgrNode list for many nodes, or PgrNode for one node.
+            end_speed: speed for travelling from end node to corresponding
+                nearest node on the way.
+
+        Returns:
+            A dict mapping all node pairs (start_node, end_node) to
+            corresponding costs. Cost is travelling time in second.
         """
+
         if not isinstance(start_nodes, list):
             start_nodes = [start_nodes]
         if not isinstance(end_nodes, list):
@@ -481,6 +519,54 @@ class PGRouting:
             return output
 
         return self.__get_all_pairs_costs(start_nodes, end_nodes, end_speed)
+
+
+    def get_gpx(self, routes, gpx_file=None):
+        """
+        Get gpx representation of routes.
+
+        Args:
+            routes: routes returned by get_routes.
+            gpx_file: name of file for saving gpx data.
+
+        Returns:
+            gpx string of paths in routes. Saved in gpx_file if it is specified.
+        """
+
+        output = ''
+        output = output + "<?xml version='1.0'?>\n"
+        output = output + ("<gpx version='1.1' creator='psycopgr' "
+                           "xmlns='http://www.topografix.com/GPX/1/1' "
+                           "xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' "
+                           "xsi:schemaLocation='http://www.topografix.com/GPX/1/1 "
+                           "http://www.topografix.com/GPX/1/1/gpx.xsd'>\n")
+
+        for key, value in routes.items():
+            output = output + " <trk>\n"
+            output = output + "  <name>{},{}->{},{}: {}</name>\n".format(
+                              key[0].lon,
+                              key[0].lat,
+                              key[1].lon,
+                              key[1].lat,
+                              value.get('cost', None))
+            output = output + "  <trkseg>\n"
+
+            for node in value['path']:
+                # print(node)
+                output = output + "   <trkpt lat='{}' lon='{}'>\n".format(
+                                  node.lat,
+                                  node.lon)
+                output = output + "   </trkpt>\n"
+            output = output + "  </trkseg>\n  </trk>\n"
+
+        output = output + "</gpx>\n"
+
+        if gpx_file is not None:
+            with open(gpx_file, "w") as f:
+                f.write(output)
+            print("gpx saved to {}".format(gpx_file))
+
+        return output
 
 
 def test1():
@@ -512,36 +598,7 @@ def test2():
     print(routings)
 
     gpx = pgr.get_gpx(routings, 'b.gpx')
-    # print(gpx)
-
-
-def test3():
-    pgr = PGRouting(database='mydb', user='herrk')
-    nodes = [PgrNode(None, 116.30150, 40.05500),
-             PgrNode(None, 116.36577, 40.00253),
-             PgrNode(None, 116.30560, 39.95458),
-             PgrNode(None, 116.46806, 39.99857)]
-
-    routings = pgr.__get_all_pairs_routings(nodes)
-    gpx = pgr.get_gpx(routings, gpx_file='routings.gpx')
-
-    # costs = pgr.__get_all_pairs_costs(nodes)
-    # pprint(costs)
-
-    # routing = pgr.get_routing(nodes[0], nodes[1])
-    # pprint(routing)
-
-    # p = routing[(nodes[0], nodes[1])]['path'][1].lon
-    # pprint(p)
-
-
-def test4():
-    pgr = PGRouting(database='mydb', user='herrk')
-    node1 = PgrNode(None, 116.30197, 40.05626)
-    node2 = PgrNode(None, 116.30582, 40.05690)
-
-    dist = pgr.__node_distance(node1, node2)
-    print(dist)
+    print(gpx)
 
 
 def test5():
@@ -578,5 +635,9 @@ def test5():
     pgr.get_gpx({(s, t): routings[(s, t)]}, gpx_file='test/r-dijkstra.gpx')
 
 
-if __name__ == '__main__':
+def main():
     test5()
+
+
+if __name__ == '__main__':
+    main()
