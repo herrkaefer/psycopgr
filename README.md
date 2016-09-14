@@ -9,5 +9,13 @@ Tested on
 - PostGIS 2.2.2
 - pgRouting 2.2.4
 
+## Installation
+
+```sh
+pip install git+https://github.com/herrkaefer/psycopgr.git
+```
+
+## Tutorial
+
 Here is a [tutorial](http://herrkaefer.online/2016/09/01/psycopgr-tutorial/).
 
