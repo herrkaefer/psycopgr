@@ -17,5 +17,5 @@ pip install git+https://github.com/herrkaefer/psycopgr.git
 
 ## Tutorial
 
-Here is a [tutorial](http://herrkaefer.online/2016/09/01/psycopgr-tutorial/).
+Here is a [tutorial](https://herrkaefer.com/2016/09/01/psycopgr-tutorial/).
 
