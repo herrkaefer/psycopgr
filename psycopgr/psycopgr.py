@@ -88,10 +88,11 @@ class PGRouting(object):
 
         sql = """
             SELECT id, lon::double precision, lat::double precision
-            FROM ways_vertices_pgr
+            FROM {table}_vertices_pgr
             ORDER BY the_geom <-> ST_SetSRID(ST_Point(%s,%s),{srid})
             LIMIT 1
-            """.format(srid=self.__meta_data['srid'])
+            """.format(table=self.__meta_data['table'],
+                       srid=self.__meta_data['srid'])
 
         output = []
         for node in nodes:
