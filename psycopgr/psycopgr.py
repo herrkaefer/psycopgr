@@ -142,7 +142,7 @@ class PGRouting(object):
             if not k in self.__meta_data.keys():
                 print("WARNNING: set_meta_data: invaid key {}".format(k))
                 continue
-            if not isinstance(v, (str, bool)):
+            if not isinstance(v, (str, bool, int)):
                 print("WARNNING: set_meta_data: invalid value {}".format(v))
                 continue
             self.__meta_data[k] = v
