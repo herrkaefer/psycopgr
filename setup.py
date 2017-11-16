@@ -12,5 +12,6 @@ setup(
     author_email='gloolar@gmail.com',
     license='MIT',
     keywords='routing GIS PostgreSQL pgRouting PostGIS shortest path A* Dijkstra',
+    packages=['psycopgr'],
     install_requires=requires
 )
