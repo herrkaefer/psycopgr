@@ -2,7 +2,7 @@
 
 **computing routes from nodes to nodes on real map.**
 
-Tested on 
+Tested on
 
 - Python 2.7.12 and Python 3.5.2
 - PostgreSQL 9.5.4
@@ -12,7 +12,7 @@ Tested on
 ## Installation
 
 ```sh
-pip install git+https://github.com/herrkaefer/psycopgr.git
+pip install psycopgr
 ```
 
 ## Tutorial
