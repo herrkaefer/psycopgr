@@ -146,7 +146,7 @@ class PGRouting(object):
                 print("WARNNING: set_meta_data: invalid value {}".format(v))
                 continue
             self.__meta_data[k] = v
-        print(self.__meta_data)
+        return self.__meta_data
 
 
     def dijkstra_cost(self, start_vids, end_vids):
