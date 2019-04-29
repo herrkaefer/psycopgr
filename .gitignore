@@ -91,5 +91,5 @@ ENV/
 
 .DS_Store
 
-test/
+tests/
 data/

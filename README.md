@@ -4,7 +4,7 @@
 
 Tested on
 
-- Python 2.7.12 and Python 3.5.2
+- Python 2.7.12 and Python 3.6.5
 - PostgreSQL 9.5.4
 - PostGIS 2.2.2
 - pgRouting 2.2.4
@@ -13,6 +13,12 @@ Tested on
 
 ```sh
 pip install psycopgr
+```
+
+or
+
+```sh
+pipenv install psycopgr
 ```
 
 ## Tutorial
