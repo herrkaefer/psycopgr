@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import List
 import psycopg2
 import psycopg2.extras
 
@@ -32,7 +33,8 @@ class PGRouting(object):
         'srid': 4326
     }
 
-    def __init__(self, database, user, host='localhost', port='5432'):
+    def __init__(self, database: str, user: str, host: str = 'localhost',
+                 port: str = '5432'):
         self._connect_to_db(database, user, host, port)
 
     def __del__(self):
@@ -58,7 +60,7 @@ class PGRouting(object):
         if not self._conn.closed:
             self._conn.close()
 
-    def _find_nearest_vertices(self, nodes):
+    def _find_nearest_vertices(self, nodes: List[PgrNode]) -> List[PgrNode]:
         """Find nearest vertex of nodes on the way.
 
         Args:
@@ -82,9 +84,11 @@ class PGRouting(object):
                 self._cur.execute(sql, (node.lon, node.lat))
                 results = self._cur.fetchall()
                 if len(results) > 0:
-                    output.append(PgrNode(results[0]['id'],
-                                  results[0]['lon'],
-                                  results[0]['lat']))
+                    output.append(
+                        PgrNode(results[0]['id'],
+                                results[0]['lon'],
+                                results[0]['lat'])
+                    )
                 else:
                     print('cannot find nearest vid for ({}, {})'.format(
                           node[0], node[1]))
@@ -94,13 +98,24 @@ class PGRouting(object):
                 return None
         return output
 
-    def _node_distance(self, node1, node2):
+    def node_distance(self, node1: PgrNode, node2: PgrNode) -> float:
         """Get distance between two nodes (unit: m).
+        Ref: https://postgis.net/docs/ST_Distance.html
         """
-        sql = """
+        if self._meta_data.get('geometry').strip().lower() == 'the_geom':
+            sql = """
             SELECT ST_Distance(
-                ST_GeogFromText('SRID={srid};POINT({lon1} {lat1})'),
-                ST_GeogFromText('SRID={srid};POINT({lon2} {lat2})')
+              ST_Transform('SRID={srid};POINT({lon1} {lat1})'::geometry, 3857),
+              ST_Transform('SRID={srid};POINT({lon2} {lat2})'::geometry, 3857)
+            ) * cosd(42.3521);
+            """.format(srid=self._meta_data['srid'],
+                       lon1=node1.lon, lat1=node1.lat,
+                       lon2=node2.lon, lat2=node2.lat)
+        else:  # geography
+            sql = """
+            SELECT ST_Distance(
+                'SRID={srid};POINT({lon1} {lat1})'::geography,
+                'SRID={srid};POINT({lon1} {lat1})'::geography
             );
             """.format(srid=self._meta_data['srid'],
                        lon1=node1.lon, lat1=node1.lat,
@@ -110,14 +125,12 @@ class PGRouting(object):
             self._cur.execute(sql)
             results = self._cur.fetchall()
             return results[0][0]
-
         except psycopg2.Error as e:
             print(e.pgerror)
             return None
 
     def set_meta_data(self, **kwargs):
-        """Set meta data of tables if it is different from the default.
-        """
+        """Set meta data of tables if it is different from the default."""
         for k, v in kwargs.items():
             if k not in self._meta_data.keys():
                 print("WARNNING: set_meta_data: invaid key {}".format(k))
@@ -132,7 +145,6 @@ class PGRouting(object):
         """Get all-pairs costs among way nodes without paths using
         pgr_dijkstraCost function.
         """
-
         sql = """
             SELECT *
             FROM pgr_dijkstraCost(
@@ -311,8 +323,8 @@ class PGRouting(object):
         end_speed = end_speed * 1000.0 / 3600.0  # km/h -> m/s
         vertices = self._find_nearest_vertices([start_node, end_node])
         node_vertex_costs = [
-            self._node_distance(start_node, vertices[0])/end_speed,
-            self._node_distance(end_node, vertices[1])/end_speed
+            self.node_distance(start_node, vertices[0]) / end_speed,
+            self.node_distance(end_node, vertices[1]) / end_speed
         ]
 
         # routing between vertices
@@ -361,7 +373,7 @@ class PGRouting(object):
         node_vertex = {
             node: {
                 'vertex': vertex,
-                'cost': self._node_distance(node, vertex) / end_speed
+                'cost': self.node_distance(node, vertex) / end_speed
             }
             for node, vertex in zip(node_list, vertices)
         }
@@ -420,7 +432,7 @@ class PGRouting(object):
         vertices = self._find_nearest_vertices(node_list)
         node_vertex = {
             node: {'vertex': vertex,
-                   'cost': self._node_distance(node, vertex) / end_speed}
+                   'cost': self.node_distance(node, vertex) / end_speed}
             for node, vertex in zip(node_list, vertices)
         }
 
