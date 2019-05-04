@@ -21,7 +21,7 @@ URL = 'https://github.com/herrkaefer/psycopgr'
 EMAIL = 'gloolar@gmail.com'
 AUTHOR = 'Yang Liu'
 REQUIRES_PYTHON = '>=2.7'
-VERSION = '1.0.3'
+VERSION = '1.0.4'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
