@@ -1,18 +1,6 @@
-#!/usr/bin/env python
-#
-# Yang Liu (gloolar@gmail.com)
-# 2016-08
-#
-# TODO
-# - Node range check
-# - Thinking about PgrNode as key: format node lat, lon precision?
-
+from collections import namedtuple
 import psycopg2
 import psycopg2.extras
-from collections import namedtuple
-
-
-__all__ = ['PgrNode', 'PGRouting']
 
 
 PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
@@ -23,11 +11,11 @@ class PGRouting(object):
     geographic coordinates, by wrapping pgRouting.
     """
 
-    __conn = None
-    __cur = None
+    _conn = None
+    _cur = None
 
-    # default edge table defination
-    __meta_data = {
+    # default edge table definition
+    _meta_data = {
         'table': 'ways',
         'id': 'gid',
         'source': 'source',
@@ -45,32 +33,32 @@ class PGRouting(object):
     }
 
     def __init__(self, database, user, host='localhost', port='5432'):
-        self.__connect_to_db(database, user, host, port)
+        self._connect_to_db(database, user, host, port)
 
     def __del__(self):
-        self.__close_db()
+        self._close_db()
 
-    def __connect_to_db(self, database, user, host, port):
-        if self.__cur is not None and not self.__cur.closed:
-            self.__cur.close()
-        if self.__conn is not None and not self.__conn.closed:
-            self.__conn.close()
+    def _connect_to_db(self, database, user, host, port):
+        if self._cur is not None and not self._cur.closed:
+            self._cur.close()
+        if self._conn is not None and not self._conn.closed:
+            self._conn.close()
 
         try:
-            self.__conn = psycopg2.connect(database=database, user=user,
-                                           host=host, port=port)
-            self.__cur = self.__conn.cursor(
+            self._conn = psycopg2.connect(database=database, user=user,
+                                          host=host, port=port)
+            self._cur = self._conn.cursor(
                 cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.Error as e:
             print(e.pgerror)
 
-    def __close_db(self):
-        if not self.__cur.closed:
-            self.__cur.close()
-        if not self.__conn.closed:
-            self.__conn.close()
+    def _close_db(self):
+        if not self._cur.closed:
+            self._cur.close()
+        if not self._conn.closed:
+            self._conn.close()
 
-    def __find_nearest_vertices(self, nodes):
+    def _find_nearest_vertices(self, nodes):
         """Find nearest vertex of nodes on the way.
 
         Args:
@@ -85,14 +73,14 @@ class PGRouting(object):
             FROM {table}_vertices_pgr
             ORDER BY the_geom <-> ST_SetSRID(ST_Point(%s,%s),{srid})
             LIMIT 1
-            """.format(table=self.__meta_data['table'],
-                       srid=self.__meta_data['srid'])
+            """.format(table=self._meta_data['table'],
+                       srid=self._meta_data['srid'])
 
         output = []
         for node in nodes:
             try:
-                self.__cur.execute(sql, (node.lon, node.lat))
-                results = self.__cur.fetchall()
+                self._cur.execute(sql, (node.lon, node.lat))
+                results = self._cur.fetchall()
                 if len(results) > 0:
                     output.append(PgrNode(results[0]['id'],
                                   results[0]['lon'],
@@ -106,7 +94,7 @@ class PGRouting(object):
                 return None
         return output
 
-    def __node_distance(self, node1, node2):
+    def _node_distance(self, node1, node2):
         """Get distance between two nodes (unit: m).
         """
         sql = """
@@ -114,13 +102,13 @@ class PGRouting(object):
                 ST_GeogFromText('SRID={srid};POINT({lon1} {lat1})'),
                 ST_GeogFromText('SRID={srid};POINT({lon2} {lat2})')
             );
-            """.format(srid=self.__meta_data['srid'],
+            """.format(srid=self._meta_data['srid'],
                        lon1=node1.lon, lat1=node1.lat,
                        lon2=node2.lon, lat2=node2.lat)
 
         try:
-            self.__cur.execute(sql)
-            results = self.__cur.fetchall()
+            self._cur.execute(sql)
+            results = self._cur.fetchall()
             return results[0][0]
 
         except psycopg2.Error as e:
@@ -131,14 +119,14 @@ class PGRouting(object):
         """Set meta data of tables if it is different from the default.
         """
         for k, v in kwargs.items():
-            if k not in self.__meta_data.keys():
+            if k not in self._meta_data.keys():
                 print("WARNNING: set_meta_data: invaid key {}".format(k))
                 continue
             if not isinstance(v, (str, bool, int)):
                 print("WARNNING: set_meta_data: invalid value {}".format(v))
                 continue
-            self.__meta_data[k] = v
-        return self.__meta_data
+            self._meta_data[k] = v
+        return self._meta_data
 
     def dijkstra_cost(self, start_vids, end_vids):
         """Get all-pairs costs among way nodes without paths using
@@ -158,19 +146,19 @@ class PGRouting(object):
                 %s,
                 {directed})
             """.format(
-                    table=self.__meta_data['table'],
-                    id=self.__meta_data['id'],
-                    source=self.__meta_data['source'],
-                    target=self.__meta_data['target'],
-                    cost=self.__meta_data['cost'],
-                    reverse_cost=self.__meta_data['reverse_cost'],
+                    table=self._meta_data['table'],
+                    id=self._meta_data['id'],
+                    source=self._meta_data['source'],
+                    target=self._meta_data['target'],
+                    cost=self._meta_data['cost'],
+                    reverse_cost=self._meta_data['reverse_cost'],
                     directed='TRUE'
-                             if self.__meta_data['directed']
+                             if self._meta_data['directed']
                              else 'FALSE')
 
         try:
-            self.__cur.execute(sql, (start_vids, end_vids))
-            results = self.__cur.fetchall()
+            self._cur.execute(sql, (start_vids, end_vids))
+            results = self._cur.fetchall()
             return {(r['start_vid'], r['end_vid']): r['agg_cost']
                     for r in results}
 
@@ -200,19 +188,19 @@ class PGRouting(object):
             WHERE r.node=v.id
             ORDER BY r.seq;
             """.format(
-                    edge_table=self.__meta_data['table'],
-                    id=self.__meta_data['id'],
-                    source=self.__meta_data['source'],
-                    target=self.__meta_data['target'],
-                    cost=self.__meta_data['cost'],
-                    reverse_cost=self.__meta_data['reverse_cost'],
+                    edge_table=self._meta_data['table'],
+                    id=self._meta_data['id'],
+                    source=self._meta_data['source'],
+                    target=self._meta_data['target'],
+                    cost=self._meta_data['cost'],
+                    reverse_cost=self._meta_data['reverse_cost'],
                     directed='TRUE'
-                             if self.__meta_data['directed']
+                             if self._meta_data['directed']
                              else 'FALSE')
 
         try:
-            self.__cur.execute(sql, (start_vids, end_vids))
-            results = self.__cur.fetchall()
+            self._cur.execute(sql, (start_vids, end_vids))
+            results = self._cur.fetchall()
 
             output = {}
             for r in results:
@@ -259,33 +247,33 @@ class PGRouting(object):
             WHERE r.id1=v.id
             ORDER BY r.seq;
             """.format(
-                    edge_table=self.__meta_data['table'],
-                    id=self.__meta_data['id'],
-                    source=self.__meta_data['source'],
-                    target=self.__meta_data['target'],
-                    cost=self.__meta_data['cost'],
-                    x1=self.__meta_data['x1'],
-                    y1=self.__meta_data['y1'],
-                    x2=self.__meta_data['x2'],
-                    y2=self.__meta_data['y2'],
+                    edge_table=self._meta_data['table'],
+                    id=self._meta_data['id'],
+                    source=self._meta_data['source'],
+                    target=self._meta_data['target'],
+                    cost=self._meta_data['cost'],
+                    x1=self._meta_data['x1'],
+                    y1=self._meta_data['y1'],
+                    x2=self._meta_data['x2'],
+                    y2=self._meta_data['y2'],
                     reverse_cost=', {} as reverse_cost'
-                    .format(self.__meta_data['reverse_cost'])
-                    if (self.__meta_data['directed']
-                        and self.__meta_data['has_reverse_cost'])
+                    .format(self._meta_data['reverse_cost'])
+                    if (self._meta_data['directed']
+                        and self._meta_data['has_reverse_cost'])
                     else '',
                     directed='TRUE'
-                             if self.__meta_data['directed']
+                             if self._meta_data['directed']
                              else 'FALSE',
                     has_rcost='TRUE'
-                              if (self.__meta_data['directed']
-                                  and self.__meta_data['has_reverse_cost'])
+                              if (self._meta_data['directed']
+                                  and self._meta_data['has_reverse_cost'])
                               else 'FALSE'
                 )
         # print(sql)
 
         try:
-            self.__cur.execute(sql, (start_vid, end_vid))
-            results = self.__cur.fetchall()
+            self._cur.execute(sql, (start_vid, end_vid))
+            results = self._cur.fetchall()
 
             output = {}
             key = (start_vid, end_vid)
@@ -305,7 +293,7 @@ class PGRouting(object):
             print(e.pgerror)
             return {}
 
-    def __get_one_to_one_routing(self, start_node, end_node, end_speed=10.0):
+    def _get_one_to_one_routing(self, start_node, end_node, end_speed=10.0):
         """Get one-to-one shorest path using A* algorithm.
 
         Args:
@@ -321,10 +309,10 @@ class PGRouting(object):
             return {}
 
         end_speed = end_speed * 1000.0 / 3600.0  # km/h -> m/s
-        vertices = self.__find_nearest_vertices([start_node, end_node])
+        vertices = self._find_nearest_vertices([start_node, end_node])
         node_vertex_costs = [
-            self.__node_distance(start_node, vertices[0])/end_speed,
-            self.__node_distance(end_node, vertices[1])/end_speed
+            self._node_distance(start_node, vertices[0])/end_speed,
+            self._node_distance(end_node, vertices[1])/end_speed
         ]
 
         # routing between vertices
@@ -345,8 +333,8 @@ class PGRouting(object):
 
         return routing
 
-    def __get_all_pairs_routings(self, start_nodes, end_nodes=None,
-                                 end_speed=10.0):
+    def _get_all_pairs_routings(self, start_nodes, end_nodes=None,
+                                end_speed=10.0):
         """Get all-pairs shortest paths from start_nodes to end_nodes with costs
         using Dijkstra algorithm.
 
@@ -369,11 +357,11 @@ class PGRouting(object):
 
         node_list = list(node_set)
 
-        vertices = self.__find_nearest_vertices(node_list)
+        vertices = self._find_nearest_vertices(node_list)
         node_vertex = {
             node: {
                 'vertex': vertex,
-                'cost': self.__node_distance(node, vertex) / end_speed
+                'cost': self._node_distance(node, vertex) / end_speed
             }
             for node, vertex in zip(node_list, vertices)
         }
@@ -406,8 +394,8 @@ class PGRouting(object):
 
         return routings
 
-    def __get_all_pairs_costs(self, start_nodes, end_nodes=None,
-                              end_speed=10.0):
+    def _get_all_pairs_costs(self, start_nodes, end_nodes=None,
+                             end_speed=10.0):
         """Get all-pairs shortest paths' costs without path details.
 
         Args:
@@ -429,10 +417,10 @@ class PGRouting(object):
             end_nodes = start_nodes
 
         node_list = list(node_set)
-        vertices = self.__find_nearest_vertices(node_list)
+        vertices = self._find_nearest_vertices(node_list)
         node_vertex = {
             node: {'vertex': vertex,
-                   'cost': self.__node_distance(node, vertex) / end_speed}
+                   'cost': self._node_distance(node, vertex) / end_speed}
             for node, vertex in zip(node_list, vertices)
         }
 
@@ -483,16 +471,14 @@ class PGRouting(object):
         # many-to-one or one-to-one
         if len(end_nodes) == 1:
             for start_node in start_nodes:
-                r = self.__get_one_to_one_routing(start_node,
-                                                  end_nodes[0],
-                                                  end_speed)
+                r = self._get_one_to_one_routing(
+                    start_node, end_nodes[0], end_speed)
                 routes.update(r)
 
         # one-to-many or many-to-many
         else:
-            routes = self.__get_all_pairs_routings(start_nodes,
-                                                   end_nodes,
-                                                   end_speed)
+            routes = self._get_all_pairs_routings(
+                start_nodes, end_nodes, end_speed)
 
         if gpx_file is not None:
             self.get_gpx(routes, gpx_file)
@@ -522,13 +508,13 @@ class PGRouting(object):
         # many-to-one or one-to-one
         if len(end_nodes) == 1:
             for start_node in start_nodes:
-                routing = self.__get_one_to_one_routing(
+                routing = self._get_one_to_one_routing(
                     start_node, end_nodes[0], end_speed)
                 for k, v in routing.items():
                     output.update({k: v['cost']})
             return output
 
-        return self.__get_all_pairs_costs(start_nodes, end_nodes, end_speed)
+        return self._get_all_pairs_costs(start_nodes, end_nodes, end_speed)
 
     def get_gpx(self, routes, gpx_file=None):
         """Get gpx representation of routes.
@@ -576,76 +562,3 @@ class PGRouting(object):
             print("gpx saved to {}".format(gpx_file))
 
         return output
-
-
-def test1():
-    pgr = PGRouting(database='pgroutingtest', user='herrk')
-    pgr.set_meta_data(table='edge_table', id='id', cost='cost')
-
-    costs = pgr.dijkstra_cost([2, 11], [3, 5])
-    print("\nall-pairs costs:\n")
-    print(costs)
-
-    routings = pgr.dijkstra([2, 11], [3, 5])
-    print("\nall-pairs paths with costs:\n")
-    print(routings)
-
-    routing = pgr.astar(11, 3)
-    print("\none-to-one path:\n")
-    print(routing)
-
-
-def test2():
-    pgr = PGRouting(database='mydb', user='herrk')
-
-    routing = pgr.astar(100, 111)
-    print("\nrouting:\n")
-    print(routing)
-
-    routings = pgr.dijkstra([100, 400], [200, 600])
-    print("\nroutings:\n")
-    print(routings)
-
-    gpx = pgr.get_gpx(routings, 'b.gpx')
-    print(gpx)
-
-
-def test3():
-    pgr = PGRouting(database='mydb', user='herrk')
-    nodes = [PgrNode(None, 116.30150, 40.05500),
-             PgrNode(None, 116.36577, 40.00253),
-             PgrNode(None, 116.30560, 39.95458),
-             PgrNode(None, 116.46806, 39.99857)]
-
-    routings = pgr.get_routes(nodes, nodes)
-    # pprint(routings)
-
-    costs = pgr.get_costs(nodes, nodes)
-    # pprint(costs)
-
-    keys = [(s, t) for s in nodes for t in nodes if s != t]
-    for s, t in keys:
-        r = pgr.get_routes(s, t)
-        c = pgr.get_costs(s, t)
-        print("\ncompare")
-        print(routings[(s, t)]['cost'])
-        print(costs[(s, t)])
-        print(r[(s, t)]['cost'])
-        print(c[(s, t)])
-
-    s = nodes[0]
-    t = nodes[3]
-    r = pgr.get_routes(s, t, gpx_file='test/r-astar.gpx')
-    c = pgr.get_costs(s, t)
-    print(r[(s, t)]['cost'])
-    print(c[(s, t)])
-
-    pgr.get_gpx({(s, t): routings[(s, t)]}, gpx_file='test/r-dijkstra.gpx')
-
-
-def main():
-    test3()
-
-
-if __name__ == '__main__':
-    main()

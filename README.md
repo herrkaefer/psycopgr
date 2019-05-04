@@ -1,13 +1,14 @@
 `psycopgr` is a Python wrapper of [pgRouting](http://pgrouting.org/) with one purpose:
 
-**computing routes from nodes to nodes on real map.**
+**Computing routes on real map for humans.**
 
-Tested on
+Tested with
 
-- Python 2.7.12 and Python 3.6.5
-- PostgreSQL 9.5.4
-- PostGIS 2.2.2
-- pgRouting 2.2.4
+- Python 3.6.5
+- PostgreSQL 11.2
+- PostGIS 2.5.2
+- pgRouting 2.6.2
+- osm2pgrouting 2.3.6
 
 ## Installation
 
