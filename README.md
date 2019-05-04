@@ -1,3 +1,13 @@
+        ____  _______  ___________  ____  ____ ______
+       / __ \/ ___/ / / / ___/ __ \/ __ \/ __ `/ ___/
+      / /_/ (__  ) /_/ / /__/ /_/ / /_/ / /_/ / /
+     / .___/____/\__, /\___/\____/ .___/\__, /_/
+    /_/         /____/          /_/    /____/
+
+[![PyPI](https://img.shields.io/pypi/v/psycopgr.svg)](https://pypi.org/project/psycopgr/)
+[![PyPI - License](https://img.shields.io/pypi/l/psycopgr.svg)](https://pypi.org/project/psycopgr/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/psycopgr.svg)
+
 `psycopgr` is a Python wrapper of [pgRouting](http://pgrouting.org/) with one purpose:
 
 **Computing routes on real map for humans.**
