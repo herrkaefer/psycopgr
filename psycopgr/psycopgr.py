@@ -98,6 +98,16 @@ class PGRouting(object):
                 return None
         return output
 
+    def set_meta_data(self, **kwargs):
+        """Set meta data of tables if it is different from the default."""
+        for k, v in kwargs.items():
+            if k not in self._meta_data.keys():
+                raise ValueError("set_meta_data: invaid key {}".format(k))
+            if not isinstance(v, (str, bool, int)):
+                raise ValueError("set_meta_data: invalid value {}".format(v))
+            self._meta_data.update({k: v})
+        return self._meta_data
+
     def node_distance(self, node1: PgrNode, node2: PgrNode) -> float:
         """Get distance between two nodes (unit: m).
         Ref: https://postgis.net/docs/ST_Distance.html
@@ -128,18 +138,6 @@ class PGRouting(object):
         except psycopg2.Error as e:
             print(e.pgerror)
             return None
-
-    def set_meta_data(self, **kwargs):
-        """Set meta data of tables if it is different from the default."""
-        for k, v in kwargs.items():
-            if k not in self._meta_data.keys():
-                print("WARNNING: set_meta_data: invaid key {}".format(k))
-                continue
-            if not isinstance(v, (str, bool, int)):
-                print("WARNNING: set_meta_data: invalid value {}".format(v))
-                continue
-            self._meta_data[k] = v
-        return self._meta_data
 
     def dijkstra_cost(self, start_vids, end_vids):
         """Get all-pairs costs among way nodes without paths using
