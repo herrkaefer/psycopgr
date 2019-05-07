@@ -44,25 +44,25 @@ pipenv install psycopgr
 
 First,
 
-```
+```python
 from psycopgr import PgrNode, PGRouting
 ```
 
 Create an PGRouting instance with database connection:
 
-```
+```python
 pgr = PGRouting(database='mydb', user='user')
 ```
 
 Adjust meta datas of tables including the edge table properies if they are different from the default (only the different properties needs to be set), e.g.:
 
-```
+```python
 pgr.set_meta_data(cost='cost_s', reverse_cost='reverse_cost_s', directed=true)
 ```
 
 This is the default meta data:
 
-```
+```python
 {
     'table': 'ways',
     'id': 'gid',
@@ -83,7 +83,7 @@ This is the default meta data:
 
 Nodes are points on map which are represented by `PgrNode` namedtuple with geographic coordinates (longitude and latitude) rather than vague vertex id (vid) in the tables. `PgrNodes` is defined as:
 
-```
+```python
 PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
 ```
 
@@ -91,7 +91,7 @@ in which `id` could be `None` or self-defined value, and `lon` and `lat` are dou
 
 For example:
 
-```
+```python
 nodes = [PgrNode(None, 116.30150, 40.05500),
          PgrNode(None, 116.36577, 40.00253),
          PgrNode(None, 116.30560, 39.95458),
@@ -100,7 +100,7 @@ nodes = [PgrNode(None, 116.30150, 40.05500),
 
 Now we can do routings! This is really straightforward:
 
-```
+```python
 # many-to-many
 routings = pgr.get_routes(nodes, nodes, end_speed=5.0, pgx_file='r.pgx')
 # one-to-one
@@ -120,7 +120,7 @@ By default, `cost` is traveling time along the path in unit second. It depends o
 
 We can also get only costs without detailed paths returned:
 
-```
+```python
 costs = pgr.get_costs(nodes, nodes)
 ```
 
