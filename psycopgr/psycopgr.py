@@ -33,27 +33,30 @@ class PGRouting(object):
         'srid': 4326
     }
 
-    def __init__(self, database: str, user: str, password: str = '',
-                host: str = 'localhost', port: str = '5432'):
-        self._connect_to_db(database, user, password, host, port)
+    def __init__(self, *args, **kwargs):
+        """
+        Initialization with database connection arguments that psycopg2 takes:
+
+        - dbname: the database name (database is a deprecated alias)
+        - user: user name used to authenticate
+        - password: password used to authenticate
+        - host: database host address (defaults to UNIX socket if not provided)
+        - port: connection port number (defaults to 5432 if not provided)
+
+        Ref: http://initd.org/psycopg/docs/module.html#psycopg2.connect
+        """
+        self._connect_to_db(*args, **kwargs)
 
     def __del__(self):
         self._close_db()
 
-    def _connect_to_db(self, database, user, password, host, port):
+    def _connect_to_db(self, *args, **kwargs):
         if self._cur is not None and not self._cur.closed:
             self._cur.close()
         if self._conn is not None and not self._conn.closed:
             self._conn.close()
-
         try:
-            if not password:
-                self._conn = psycopg2.connect(database=database, 
-                                        user=user, host=host, port=port)
-            else:
-                self._conn = psycopg2.connect(database=database, 
-                                            user=user, password=password, 
-                                            host=host, port=port)
+            self._conn = psycopg2.connect(*args, **kwargs)
             self._cur = self._conn.cursor(
                 cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.Error as e:
