@@ -33,22 +33,27 @@ class PGRouting(object):
         'srid': 4326
     }
 
-    def __init__(self, database: str, user: str, host: str = 'localhost',
-                 port: str = '5432'):
-        self._connect_to_db(database, user, host, port)
+    def __init__(self, database: str, user: str, password: str = '',
+                host: str = 'localhost', port: str = '5432'):
+        self._connect_to_db(database, user, password, host, port)
 
     def __del__(self):
         self._close_db()
 
-    def _connect_to_db(self, database, user, host, port):
+    def _connect_to_db(self, database, user, password, host, port):
         if self._cur is not None and not self._cur.closed:
             self._cur.close()
         if self._conn is not None and not self._conn.closed:
             self._conn.close()
 
         try:
-            self._conn = psycopg2.connect(database=database, user=user,
-                                          host=host, port=port)
+            if not password:
+                self._conn = psycopg2.connect(database=database, 
+                                        user=user, host=host, port=port)
+            else:
+                self._conn = psycopg2.connect(database=database, 
+                                            user=user, password=password, 
+                                            host=host, port=port)
             self._cur = self._conn.cursor(
                 cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.Error as e:
