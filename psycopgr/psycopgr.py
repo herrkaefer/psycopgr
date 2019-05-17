@@ -11,10 +11,6 @@ class PGRouting(object):
     """Computing shortest paths and costs from nodes to nodes represented in
     geographic coordinates, by wrapping pgRouting.
     """
-
-    _conn = None
-    _cur = None
-
     # default edge table definition
     _meta_data = {
         'table': 'ways',
@@ -35,7 +31,9 @@ class PGRouting(object):
 
     def __init__(self, *args, **kwargs):
         """
-        Initialization with database connection arguments that psycopg2 takes:
+        Args:
+
+        database connection arguments that psycopg2 accepts:
 
         - dbname: the database name (database is a deprecated alias)
         - user: user name used to authenticate
@@ -45,6 +43,8 @@ class PGRouting(object):
 
         Ref: http://initd.org/psycopg/docs/module.html#psycopg2.connect
         """
+        self._conn = None
+        self._cur = None
         self._connect_to_db(*args, **kwargs)
 
     def __del__(self):
