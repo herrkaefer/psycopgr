@@ -20,7 +20,7 @@ Tested with
 - pgRouting 2.6.2
 - osm2pgrouting 2.3.6
 
-## Preparation 
+## Preparation
 
 - Install `PostgreSQL`, `PostGIS`, and `pgRouting`
 - Create database to store map data
@@ -42,16 +42,12 @@ pipenv install psycopgr
 
 ## Routing with Python!
 
-First,
+First, create an PGRouting instance with database connection. Arguments are same as that psycopg2.connect() takes.
 
 ```python
 from psycopgr import PgrNode, PGRouting
-```
-
-Create an PGRouting instance with database connection:
-
-```python
-pgr = PGRouting(database='mydb', user='user')
+pgr = PGRouting(dbname='mydb', user='user', password='secret',
+                host='localhost', port='5432')
 ```
 
 Adjust meta datas of tables including the edge table properies if they are different from the default (only the different properties needs to be set), e.g.:
@@ -87,7 +83,7 @@ Nodes are points on map which are represented by `PgrNode` namedtuple with geogr
 PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
 ```
 
-in which `id` could be `None` or self-defined value, and `lon` and `lat` are double precision values. 
+in which `id` could be `None` or self-defined value, and `lon` and `lat` are double precision values.
 
 For example:
 
