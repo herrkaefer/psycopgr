@@ -68,7 +68,7 @@ class PGRouting(object):
         if not self._conn.closed:
             self._conn.close()
 
-    def _find_nearest_vertices(self, nodes: List[PgrNode]) -> List[PgrNode]:
+    def find_nearest_vertices(self, nodes: List[PgrNode]) -> List[PgrNode]:
         """Find nearest vertex of nodes on the way.
 
         Args:
@@ -99,8 +99,8 @@ class PGRouting(object):
                     )
                 else:
                     print('cannot find nearest vid for ({}, {})'.format(
-                          node[0], node[1]))
-                    return None
+                          node.lon, node.lat))
+                    output.append(None)
             except psycopg2.Error as e:
                 print(e.pgerror)
                 return None
@@ -327,7 +327,7 @@ class PGRouting(object):
             return {}
 
         end_speed = end_speed * 1000.0 / 3600.0  # km/h -> m/s
-        vertices = self._find_nearest_vertices([start_node, end_node])
+        vertices = self.find_nearest_vertices([start_node, end_node])
         node_vertex_costs = [
             self.node_distance(start_node, vertices[0]) / end_speed,
             self.node_distance(end_node, vertices[1]) / end_speed
@@ -375,7 +375,7 @@ class PGRouting(object):
 
         node_list = list(node_set)
 
-        vertices = self._find_nearest_vertices(node_list)
+        vertices = self.find_nearest_vertices(node_list)
         node_vertex = {
             node: {
                 'vertex': vertex,
@@ -435,7 +435,7 @@ class PGRouting(object):
             end_nodes = start_nodes
 
         node_list = list(node_set)
-        vertices = self._find_nearest_vertices(node_list)
+        vertices = self.find_nearest_vertices(node_list)
         node_vertex = {
             node: {'vertex': vertex,
                    'cost': self.node_distance(node, vertex) / end_speed}
