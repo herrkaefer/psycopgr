@@ -1,138 +1,92 @@
-        ____  _______  ___________  ____  ____ ______
-       / __ \/ ___/ / / / ___/ __ \/ __ \/ __ `/ ___/
-      / /_/ (__  ) /_/ / /__/ /_/ / /_/ / /_/ / /
-     / .___/____/\__, /\___/\____/ .___/\__, /_/
-    /_/         /____/          /_/    /____/
+# psycopgr
 
-[![PyPI](https://img.shields.io/pypi/v/psycopgr.svg)](https://pypi.org/project/psycopgr/)
-[![PyPI - License](https://img.shields.io/pypi/l/psycopgr.svg)](https://pypi.org/project/psycopgr/)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/psycopgr.svg)
+Python client for finding routes and travel costs in a PostgreSQL routing graph.
 
-`psycopgr` is a Python wrapper of [pgRouting](http://pgrouting.org/) with one purpose:
+## Requirements
 
-**Computing routes on real map for humans.**
+- Python 3.11 or later with Psycopg 3.
+- Reference database stack: PostgreSQL 18, PostGIS 3.7, pgRouting 4.0.
+- A graph with edge and vertex tables. For OpenStreetMap data, use osm2pgrouting 3.0 or an existing osm2pgrouting 2.x import.
 
-Tested with
-
-- Python 3.6.5
-- PostgreSQL 11.2
-- PostGIS 2.5.2
-- pgRouting 2.6.2
-- osm2pgrouting 2.3.6
-
-## Preparation
-
-- Install `PostgreSQL`, `PostGIS`, and `pgRouting`
-- Create database to store map data
-- Import OpenStreet map data into database
-
-A step by step note can be found [here](https://herrkaefer.com/2016/08/30/pgrouting-notes/).
-
-## Installation
+## Install
 
 ```sh
-pip install psycopgr
+pip install 'psycopgr[binary]'
 ```
 
-or
+For this checkout, use `pip install '.[binary]'`. The base package uses your system's `libpq`; the `binary` extra bundles it on supported platforms.
+
+## Load a graph
+
+In a database where the extensions are available, enable them once as a database administrator:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pgrouting;
+```
+
+For a new OpenStreetMap graph, follow the [osm2pgrouting 3.0 installation instructions](https://github.com/pgRouting/osm2pgrouting/tree/v3.0.0), then import an OSM XML extract using its supplied map configuration:
 
 ```sh
-pipenv install psycopgr
+osm2pgrouting --file region.osm --conf /path/to/mapconfig.xml \
+  --dbname routing --host localhost --username routing
 ```
 
-## Routing with Python!
+You can also use a graph you prepared yourself. `set_meta_data()` accepts schema-qualified `table` and `vertex_table` names. If you omit `vertex_table`, the library uses `<table>_vertices_pgr` in the same schema. The vertex table needs an `id` and a point geometry column with the configured SRID. A GiST index on the point column speeds up snapping.
 
-First, create an PGRouting instance with database connection. Arguments are same as that psycopg2.connect() takes.
+## Route between coordinates
 
 ```python
-from psycopgr import PgrNode, PGRouting
-pgr = PGRouting(dbname='mydb', user='user', password='secret',
-                host='localhost', port='5432')
+from psycopgr import PGRouting, PgrNode
+
+start = PgrNode("start", -87.630, 41.881)
+end = PgrNode("end", -87.623, 41.887)
+
+with PGRouting("host=localhost dbname=routing user=routing") as routing:
+    # Use these overrides for tables created by osm2pgrouting 3.
+    routing.set_meta_data(id="id", geometry="geom", vertex_geometry="geom")
+
+    routes = routing.get_routes(start, end, gpx_file="route.gpx")
+    costs = routing.get_costs(start, end)
 ```
 
-Adjust meta datas of tables including the edge table properies if they are different from the default (only the different properties needs to be set), e.g.:
+The default names match osm2pgrouting 2.x: `ways.gid` and `ways_vertices_pgr.the_geom`.
+Edge columns default to `source`, `target`, `cost_s`, and `reverse_cost_s`.
+Set `has_reverse_cost=False` for a graph without the reverse cost column.
+`astar()` also expects edge coordinate columns `x1`, `y1`, `x2`, and `y2`.
 
-```python
-pgr.set_meta_data(cost='cost_s', reverse_cost='reverse_cost_s', directed=true)
+`PgrNode(id, lon, lat)` uses longitude and latitude in WGS84 by default. For a projected graph,
+set `srid` and pass the graph's X/Y coordinates in those fields. GPX exports use WGS84.
+Each endpoint argument can be a single node or an iterable of nodes. Results are keyed by
+`(start_node, end_node)`. Each route contains a `path` and a `cost`. Unreachable pairs and
+identical endpoints are omitted. The cost combines graph travel time with the time it takes
+to reach the graph at `end_speed` (default 10 km/h). Use seconds for the edge costs when
+routing from coordinates.
+
+`dijkstra()`, `dijkstra_cost()`, and `astar()` work directly with vertex IDs. With the 2.0
+client, database errors propagate as Psycopg exceptions. Use the context manager or call
+`close()` when finished. For an existing database, test the PostgreSQL and extension upgrade
+on a restored backup before migrating live data.
+
+## Develop and test
+
+Install [uv](https://docs.astral.sh/uv/) and Docker with Compose, then run:
+
+```sh
+uv sync --locked
+docker compose up --build --wait
+PYTHONWARNINGS=error PSYCOPGR_TEST_DSN=postgresql://routing:routing@127.0.0.1:55432/routing \
+  uv run --locked --no-sync coverage run --branch --source=psycopgr \
+  -m unittest discover -s tests -p test_routing_integration.py -v
+uv run --locked coverage report --show-missing --fail-under=95
+uv build
+uv run --locked twine check --strict dist/*
+docker compose down --volumes
 ```
 
-This is the default meta data:
+The integration suite creates a temporary schema and requires permission to enable the two
+extensions if they are absent. The Compose database is for local development.
 
-```python
-{
-    'table': 'ways',
-    'id': 'gid',
-    'source': 'source',
-    'target': 'target',
-    'cost': 'cost_s', # driving time in second
-    'reverse_cost': 'reverse_cost_s', # reverse driving time in second
-    'x1': 'x1',
-    'y1': 'y1',
-    'x2': 'x2',
-    'y2': 'y2',
-    'geometry': 'the_geom',
-    'has_reverse_cost': True,
-    'directed': True,
-    'srid': 4326
-}
-```
-
-Nodes are points on map which are represented by `PgrNode` namedtuple with geographic coordinates (longitude and latitude) rather than vague vertex id (vid) in the tables. `PgrNodes` is defined as:
-
-```python
-PgrNode = namedtuple('PgrNode', ['id', 'lon', 'lat'])
-```
-
-in which `id` could be `None` or self-defined value, and `lon` and `lat` are double precision values.
-
-For example:
-
-```python
-nodes = [PgrNode(None, 116.30150, 40.05500),
-         PgrNode(None, 116.36577, 40.00253),
-         PgrNode(None, 116.30560, 39.95458),
-         PgrNode(None, 116.46806, 39.99857)]
-```
-
-Now we can do routings! This is really straightforward:
-
-```python
-# many-to-many
-routings = pgr.get_routes(nodes, nodes, end_speed=5.0, pgx_file='r.pgx')
-# one-to-one
-routings = pgr.get_routes(nodes[0], nodes[1])
-# one-to-many
-routings = pgr.get_routes(nodes[0], nodes)
-# many-to-one
-routings = pgr.get_routes(nodes, node[2])
-```
-
-- `end_speed`: speed from node to nearest vertices on ways in unit km/h.
-- `gpx_file`: set it to output paths to a gpx file.
-
-The returned is a dict of dict: `{(start_node, end_node): {'path': [PgrNode], 'cost': cost}`
-
-By default, `cost` is traveling time along the path in unit second. It depends on the means of columns of the edge table that you set as `cost` and `reverse_cost`. You can assign the relations by `set_meta_data` function.
-
-We can also get only costs without detailed paths returned:
-
-```python
-costs = pgr.get_costs(nodes, nodes)
-```
-
-The returned is also a dict: `{(start_node, end_node): cost}`
-
-## Low-level wrapper of pgRouting functions
-
-| psycopgr function | pgRouting function |
-| :---------------- | :----------------- |
-| dijkstra          | pgr_dijkstra       |
-| dijkstra_cost     | pgr_dijkstraCost   |
-| astar             | pgr_astar          |
-
-These are direct wrappings of pgRouting functions. For example, `dijkstra` takes vertex ids as input. This list may be extended in the future.
-
-## Tutorial
-
-Here is a [tutorial](https://herrkaefer.com/2016/09/01/psycopgr-tutorial/).
-
+CI runs the routing suite on Python 3.11–3.14, treats Python and database warnings as test
+failures, and enforces at least 95% branch and statement coverage combined. A separate job
+imports an OSM fixture with osm2pgrouting 3.0 and routes across the imported graph.

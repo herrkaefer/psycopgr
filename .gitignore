@@ -91,5 +91,10 @@ ENV/
 
 .DS_Store
 
-tests/
+tests/*
+!tests/test_routing_integration.py
+!tests/test_osm_import.py
 data/
+
+# Local test caches
+.pytest_cache/

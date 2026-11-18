@@ -1,0 +1,3 @@
+prune tests
+include tests/test_routing_integration.py
+include tests/test_osm_import.py

@@ -1,0 +1,87 @@
+name: CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-26.04
+    strategy:
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: uv sync --locked --python ${{ matrix.python }}
+      - run: uv build
+      - run: uv run --locked twine check --strict dist/*
+      - name: Install and import the built wheel
+        env:
+          PYTHONWARNINGS: error
+        run: |
+          uv venv --python ${{ matrix.python }} "$RUNNER_TEMP/wheel"
+          wheel=(dist/*.whl)
+          uv pip install --python "$RUNNER_TEMP/wheel/bin/python" "${wheel[0]}[binary]"
+          uv pip check --python "$RUNNER_TEMP/wheel/bin/python"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel/bin/python" -c 'import psycopgr; print(psycopgr.__version__)'
+
+  routing:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+    runs-on: ubuntu-26.04
+    env:
+      PSYCOPGR_TEST_DSN: postgresql://routing:routing@127.0.0.1:55432/routing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: uv sync --locked --python ${{ matrix.python }}
+      - run: docker compose up --build --wait
+      - name: Run routing acceptance tests with warnings as errors
+        env:
+          PYTHONWARNINGS: error
+        run: uv run --locked --no-sync coverage run --branch --source=psycopgr -m unittest discover -s tests -p test_routing_integration.py -v
+      - run: uv run --locked coverage report --show-missing --fail-under=95
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes
+
+  osm-import:
+    runs-on: ubuntu-24.04
+    env:
+      PSYCOPGR_TEST_DSN: postgresql://routing:routing@127.0.0.1:55432/routing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: uv sync --locked --python 3.14
+      - name: Build osm2pgrouting 3.0.0
+        env:
+          OSM2PGROUTING_COMMIT: 785a13e5077c8966b2bac5ede72d88c394139a23
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libboost-program-options-dev libexpat1-dev libpq-dev libpqxx-dev
+          mkdir -p "$RUNNER_TEMP/osm2pgrouting"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://codeload.github.com/pgRouting/osm2pgrouting/tar.gz/$OSM2PGROUTING_COMMIT" |
+            tar -xz --strip-components=1 -C "$RUNNER_TEMP/osm2pgrouting"
+          cmake -S "$RUNNER_TEMP/osm2pgrouting" -B "$RUNNER_TEMP/osm2pgrouting/build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/osm2pgrouting/build" --parallel 2
+      - run: docker compose up --build --wait
+      - name: Import OpenStreetMap fixture and route
+        env:
+          PYTHONWARNINGS: error
+        run: |
+          export OSM2PGROUTING="$RUNNER_TEMP/osm2pgrouting/build/osm2pgrouting"
+          export OSM_MAPCONFIG="$RUNNER_TEMP/osm2pgrouting/mapconfig.xml"
+          uv run --locked --no-sync python -m unittest discover -s tests -p test_osm_import.py -v
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes
