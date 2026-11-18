@@ -1,0 +1,34 @@
+name: CI
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uv sync --locked --python ${{ matrix.python }}
+      - run: uv build
+      - run: uv run --locked twine check --strict dist/*
+      - run: uv run --locked python -c 'import psycopgr; print(psycopgr.__version__)'
+
+  routing:
+    runs-on: ubuntu-latest
+    env:
+      PSYCOPGR_TEST_DSN: postgresql://routing:routing@127.0.0.1:55432/routing
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uv sync --locked --python 3.14
+      - run: docker compose up --build --wait
+      - run: uv run --locked python -m unittest discover -s tests -p test_routing_integration.py -v
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes

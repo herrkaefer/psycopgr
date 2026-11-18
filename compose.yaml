@@ -1,0 +1,16 @@
+services:
+  routing:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    environment:
+      POSTGRES_DB: routing
+      POSTGRES_USER: routing
+      POSTGRES_PASSWORD: routing
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "routing", "-d", "routing"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
