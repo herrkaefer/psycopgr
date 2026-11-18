@@ -75,8 +75,10 @@ Install [uv](https://docs.astral.sh/uv/) and Docker with Compose, then run:
 ```sh
 uv sync --locked
 docker compose up --build --wait
-PSYCOPGR_TEST_DSN=postgresql://routing:routing@127.0.0.1:55432/routing \
-  uv run --locked python -m unittest discover -s tests -p test_routing_integration.py -v
+PYTHONWARNINGS=error PSYCOPGR_TEST_DSN=postgresql://routing:routing@127.0.0.1:55432/routing \
+  uv run --locked coverage run --branch --source=psycopgr \
+  -m unittest discover -s tests -p test_routing_integration.py -v
+uv run --locked coverage report --show-missing --fail-under=95
 uv build
 uv run --locked twine check --strict dist/*
 docker compose down --volumes
