@@ -11,8 +11,8 @@ jobs:
       matrix:
         python: ['3.11', '3.12', '3.13', '3.14']
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - run: uv sync --locked --python ${{ matrix.python }}
       - run: uv build
       - run: uv run --locked twine check --strict dist/*
@@ -23,8 +23,8 @@ jobs:
     env:
       PSYCOPGR_TEST_DSN: postgresql://routing:routing@127.0.0.1:55432/routing
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - run: uv sync --locked --python 3.14
       - run: docker compose up --build --wait
       - run: uv run --locked python -m unittest discover -s tests -p test_routing_integration.py -v
