@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         python: ['3.11', '3.12', '3.13', '3.14']
@@ -35,7 +35,7 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.11', '3.12', '3.13', '3.14']
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       PSYCOPGR_TEST_DSN: postgresql://routing:routing@127.0.0.1:55432/routing
     steps:
