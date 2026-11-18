@@ -1,3 +1,4 @@
+from importlib.metadata import version
 from math import inf, nan
 import os
 from pathlib import Path
@@ -136,7 +137,7 @@ class RoutingIntegrationTest(unittest.TestCase):
         self.assertEqual(self.router.get_routes(self.a, self.c), {})
 
     def test_public_version_and_node_shape(self):
-        self.assertEqual(__version__, "2.0.0")
+        self.assertEqual(__version__, version("psycopgr"))
         self.assertEqual(tuple(self.a), ("a", 0, 0))
         self.assertEqual(self.a._replace(lon=1), PgrNode("a", 1, 0))
 

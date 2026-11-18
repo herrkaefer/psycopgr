@@ -76,7 +76,7 @@ Install [uv](https://docs.astral.sh/uv/) and Docker with Compose, then run:
 uv sync --locked
 docker compose up --build --wait
 PYTHONWARNINGS=error PSYCOPGR_TEST_DSN=postgresql://routing:routing@127.0.0.1:55432/routing \
-  uv run --locked coverage run --branch --source=psycopgr \
+  uv run --locked --no-sync coverage run --branch --source=psycopgr \
   -m unittest discover -s tests -p test_routing_integration.py -v
 uv run --locked coverage report --show-missing --fail-under=95
 uv build
@@ -86,3 +86,7 @@ docker compose down --volumes
 
 The integration suite creates a temporary schema and requires permission to enable the two
 extensions if they are absent. The Compose database is for local development.
+
+CI runs the routing suite on Python 3.11–3.14, treats Python and database warnings as test
+failures, and enforces at least 95% branch and statement coverage combined. A separate job
+imports an OSM fixture with osm2pgrouting 3.0 and routes across the imported graph.
